@@ -189,6 +189,20 @@ class MSTeams {
                           title = '',
                           msteams_emails = ''
                         }) {
+    // Handle simplified context data
+    if (job.error === 'Circular reference detected') {
+      core.warning('Using simplified job context due to circular reference');
+      job = { status: 'unknown', simplified: true };
+    }
+    if (steps.error === 'Circular reference detected') {
+      core.warning('Using simplified steps context due to circular reference');
+      steps = {};
+    }
+    if (needs.error === 'Circular reference detected') {
+      core.warning('Using simplified needs context due to circular reference');
+      needs = {};
+    }
+
     const steps_summary = summary_generator(steps, 'outcome');
     const needs_summary = summary_generator(needs, 'result');
     const status_summary = statusSummary(job);

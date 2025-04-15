@@ -105988,6 +105988,20 @@ class MSTeams {
                           title = '',
                           msteams_emails = ''
                         }) {
+    // Handle simplified context data
+    if (job.error === 'Circular reference detected') {
+      core.warning('Using simplified job context due to circular reference');
+      job = { status: 'unknown', simplified: true };
+    }
+    if (steps.error === 'Circular reference detected') {
+      core.warning('Using simplified steps context due to circular reference');
+      steps = {};
+    }
+    if (needs.error === 'Circular reference detected') {
+      core.warning('Using simplified needs context due to circular reference');
+      needs = {};
+    }
+
     const steps_summary = summary_generator(steps, 'outcome');
     const needs_summary = summary_generator(needs, 'result');
     const status_summary = statusSummary(job);
@@ -111564,8 +111578,44 @@ const missing_functionality_warning = objective =>
 
 const access_context = context_name => {
 	let context = core.getInput(context_name);
-	if (!context) missing_functionality_warning(context_name);
-	return context === '' ? {} : JSON.parse(context);
+	if (!context) {
+		missing_functionality_warning(context_name);
+		return {};
+	}
+	
+	if (context === '') return {};
+	
+	try {
+		// Debug logging
+		core.info(`Attempting to parse ${context_name} context`);
+		core.info(`Raw input: ${context.substring(0, 100)}...`); // Log first 100 chars
+		
+		// Try to parse the JSON
+		const parsed = JSON.parse(context);
+		
+		// Debug logging of parsed structure
+		core.info(`Successfully parsed ${context_name} context`);
+		core.info(`Structure: ${JSON.stringify(Object.keys(parsed))}`);
+		
+		return parsed;
+	} catch (error) {
+		core.error(`Failed to parse ${context_name} context: ${error.message}`);
+		core.error(`Error occurred at position ${error.position}`);
+		core.error(`Context length: ${context.length}`);
+		
+		// Try to find circular references
+		if (error.message.includes('circular')) {
+			core.error('Circular reference detected!');
+			// Return a simplified version
+			return {
+				error: 'Circular reference detected',
+				context_name: context_name,
+				length: context.length
+			};
+		}
+		
+		return {};
+	}
 };
 
 async function run() {
